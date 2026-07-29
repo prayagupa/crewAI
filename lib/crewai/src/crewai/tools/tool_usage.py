@@ -110,6 +110,7 @@ class ToolUsage:
         self.function_calling_llm = function_calling_llm
         self.fingerprint_context = fingerprint_context or {}
         self.last_raw_result: Any = _RAW_RESULT_UNSET
+        self.last_call_failed = False
 
         if (
             self.function_calling_llm
@@ -132,7 +133,9 @@ class ToolUsage:
     def use(
         self, calling: ToolCalling | InstructorToolCalling, tool_string: str
     ) -> str:
+        self.last_call_failed = False
         if isinstance(calling, ToolUsageError):
+            self.last_call_failed = True
             error = calling.message
             if self.agent and self.agent.verbose:
                 PRINTER.print(content=f"\n\n{error}\n", color="red")
@@ -143,6 +146,7 @@ class ToolUsage:
         try:
             tool = self._select_tool(calling.tool_name)
         except Exception as e:
+            self.last_call_failed = True
             error = getattr(e, "message", str(e))
             if self.task:
                 self.task.increment_tools_errors()
@@ -159,6 +163,7 @@ class ToolUsage:
                 return self._use(tool_string=tool_string, tool=tool, calling=calling)
 
             except Exception as e:
+                self.last_call_failed = True
                 error = getattr(e, "message", str(e))
                 if self.task:
                     self.task.increment_tools_errors()
@@ -180,7 +185,9 @@ class ToolUsage:
         Returns:
             The result of the tool execution as a string.
         """
+        self.last_call_failed = False
         if isinstance(calling, ToolUsageError):
+            self.last_call_failed = True
             error = calling.message
             if self.agent and self.agent.verbose:
                 PRINTER.print(content=f"\n\n{error}\n", color="red")
@@ -191,6 +198,7 @@ class ToolUsage:
         try:
             tool = self._select_tool(calling.tool_name)
         except Exception as e:
+            self.last_call_failed = True
             error = getattr(e, "message", str(e))
             if self.task:
                 self.task.increment_tools_errors()
@@ -208,6 +216,7 @@ class ToolUsage:
                     tool_string=tool_string, tool=tool, calling=calling
                 )
             except Exception as e:
+                self.last_call_failed = True
                 error = getattr(e, "message", str(e))
                 if self.task:
                     self.task.increment_tools_errors()
@@ -237,6 +246,7 @@ class ToolUsage:
         """
         if self._check_tool_repeated_usage(calling=calling):
             try:
+                self.last_call_failed = True
                 result = I18N_DEFAULT.errors("task_repeated_usage").format(
                     tool_names=self.tools_names
                 )
@@ -307,6 +317,7 @@ class ToolUsage:
                 available_tool, sanitize_tool_name(tool.name)
             )
             if usage_limit_error:
+                self.last_call_failed = True
                 result = usage_limit_error
                 self.last_raw_result = result
                 self._telemetry.tool_usage_error(llm=self.function_calling_llm)
@@ -424,6 +435,7 @@ class ToolUsage:
                     error_event_emitted = True
                     self._run_attempts += 1
                     if self._run_attempts > self._max_parsing_attempts:
+                        self.last_call_failed = True
                         self._telemetry.tool_usage_error(llm=self.function_calling_llm)
                         error_message = I18N_DEFAULT.errors(
                             "tool_usage_exception"
@@ -475,6 +487,7 @@ class ToolUsage:
         # Repeated usage check happens before event emission - safe to return early
         if self._check_tool_repeated_usage(calling=calling):
             try:
+                self.last_call_failed = True
                 result = I18N_DEFAULT.errors("task_repeated_usage").format(
                     tool_names=self.tools_names
                 )
@@ -547,6 +560,7 @@ class ToolUsage:
                 available_tool, sanitize_tool_name(tool.name)
             )
             if usage_limit_error:
+                self.last_call_failed = True
                 result = usage_limit_error
                 self.last_raw_result = result
                 self._telemetry.tool_usage_error(llm=self.function_calling_llm)
@@ -664,6 +678,7 @@ class ToolUsage:
                     error_event_emitted = True
                     self._run_attempts += 1
                     if self._run_attempts > self._max_parsing_attempts:
+                        self.last_call_failed = True
                         self._telemetry.tool_usage_error(llm=self.function_calling_llm)
                         error_message = I18N_DEFAULT.errors(
                             "tool_usage_exception"
