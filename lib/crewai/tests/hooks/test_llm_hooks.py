@@ -460,10 +460,10 @@ class TestLLMHooksIntegration:
         assert proceed is False
 
     @pytest.mark.parametrize("source", ["my-policy", "agent-hooks"])
-    def test_custom_string_abort_source_preserves_legacy_contract(
+    def test_custom_string_abort_source_preserves_explicit_denial(
         self, mock_executor, source: str
     ) -> None:
-        """A custom string source is not an agent-hooks ownership marker."""
+        """Explicit denials propagate regardless of the source identifier."""
         from crewai.hooks.dispatch import HookAborted
         from crewai.utilities.agent_utils import _setup_before_llm_call_hooks
 
@@ -472,14 +472,13 @@ class TestLLMHooksIntegration:
 
         mock_executor.before_llm_call_hooks = [blocking_hook]
 
-        assert (
+        with pytest.raises(HookAborted, match="custom policy denied") as raised:
             _setup_before_llm_call_hooks(
                 mock_executor,
                 printer=Mock(),
                 verbose=False,
             )
-            is False
-        )
+        assert raised.value.source == source
 
     @pytest.mark.vcr()
     def test_lite_agent_hooks_integration_with_real_llm(self):

@@ -1230,7 +1230,7 @@ class BaseLLM(BaseModel, ABC):
             raise_if_post_model_blocked,
         )
 
-        if model_call_hooks_already_dispatched() or not isinstance(response, str):
+        if model_call_hooks_already_dispatched():
             return response
 
         # No early global-list guard: dispatch resolves global + execution-scoped

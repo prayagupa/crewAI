@@ -1028,7 +1028,7 @@ class TestModelGovernance:
         )
         engine = use_agent_hooks(_DenyAt("pre_model_call", "policy denied"))
         try:
-            with pytest.raises(ValueError, match="policy denied"):
+            with pytest.raises(HookAborted, match="policy denied"):
                 _setup_before_llm_call_hooks(
                     executor,
                     Printer(),
@@ -1273,7 +1273,7 @@ class TestModelGovernance:
         monkeypatch.setattr(llm, "_aprocess_message_files", fake_process)
         engine = use_agent_hooks(_DenyAt("pre_model_call", "blocked"))
         try:
-            with pytest.raises(ValueError, match="blocked"):
+            with pytest.raises(HookAborted, match="blocked"):
                 await llm.acall("hello")
             assert processed is False
         finally:
